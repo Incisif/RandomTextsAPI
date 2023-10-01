@@ -34,6 +34,9 @@ const app = express();
 // Middleware for parsing JSON
 app.use(express.json());
 
+// Middleware for serving static files
+app.use(express.static('public'));
+
 // Get a reference to the Firestore database
 const db = admin.firestore();
 
