@@ -2,6 +2,7 @@
 import express, { Request, Response } from "express";
 import * as admin from "firebase-admin";
 import dotenv from "dotenv";
+import bcrypt from "bcrypt";
 
 // Load environment variables from .env file
 dotenv.config();
@@ -50,39 +51,38 @@ app.get("/", (req: Request, res: Response) => {
 
 /****ROUTES FOR HANDLING USERS****/
 
-// Create a new user
-app.post("/createUser", (req: Request, res: Response) => {
-  (async () => {
-    const { email, firstname, secondname, username, password } = req.body;
+// Create a new user with mandatory fields and hashed password
+app.post("/createUser", async (req: Request, res: Response) => {
+  // Destructure incoming data from request body
+  const { email, firstName, lastName, username, password } = req.body;
 
-    if (!email || !firstname || !secondname || !username || !password) {
-      res
-        .status(400)
-        .send(
-          "All fields (email, firstname, secondname, username, password) are required."
-        );
-      return;
+  // Validate mandatory fields
+  if (!email || !firstName || !lastName || !username || !password) {
+    return res.status(400).send("All fields are required.");
+  }
+
+  try {
+    // Hash the password using bcrypt
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Save the new user to Firestore, including role and hashed password
+    const user = await db.collection("users").add({
+      email,
+      firstName,
+      lastName,
+      username,
+      password: hashedPassword,
+      role: "user", // default role
+    });
+    res.status(201).send(`User created with ID: ${user.id}`);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      res.status(400).send(error.message);
+    } else {
+      res.status(400).send("An unknown error occurred");
     }
-
-    try {
-      // Add the new user to the Firestore database
-      const user = await db.collection("users").add({
-        email,
-        firstname,
-        secondname,
-        username,
-        password, // TODO: Hash password before storing (handled in next steps)
-      });
-
-      res.status(201).send(`User created with ID: ${user.id}`);
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        res.status(400).send(error.message);
-      } else {
-        res.status(400).send("An unknown error occurred");
-      }
-    }
-  })();
+  }
 });
 
 // Get a user by ID
