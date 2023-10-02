@@ -35,7 +35,7 @@ const app = express();
 app.use(express.json());
 
 // Middleware for serving static files
-app.use(express.static('public'));
+app.use(express.static("public"));
 
 // Get a reference to the Firestore database
 const db = admin.firestore();
@@ -48,15 +48,32 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Hello, welcome to my API!");
 });
 
-
 /****ROUTES FOR HANDLING USERS****/
 
 // Create a new user
 app.post("/createUser", (req: Request, res: Response) => {
   (async () => {
-    const { name, age } = req.body;
+    const { email, firstname, secondname, username, password } = req.body;
+
+    if (!email || !firstname || !secondname || !username || !password) {
+      res
+        .status(400)
+        .send(
+          "All fields (email, firstname, secondname, username, password) are required."
+        );
+      return;
+    }
+
     try {
-      const user = await db.collection("users").add({ name, age });
+      // Add the new user to the Firestore database
+      const user = await db.collection("users").add({
+        email,
+        firstname,
+        secondname,
+        username,
+        password, // TODO: Hash password before storing (handled in next steps)
+      });
+
       res.status(201).send(`User created with ID: ${user.id}`);
     } catch (error: unknown) {
       if (error instanceof Error) {
