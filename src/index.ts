@@ -49,6 +49,9 @@ app.get("/", (req: Request, res: Response) => {
   res.send("Hello, welcome to my API!");
 });
 
+// Declare saltRounds for bcrypt hashing
+const saltRounds = 10;
+
 /****ROUTES FOR HANDLING USERS****/
 
 // Create a new user with mandatory fields and hashed password
@@ -109,16 +112,28 @@ app.get("/getUser/:id", (req: Request, res: Response) => {
 // Update a user by ID
 app.put("/updateUser/:id", (req: Request, res: Response) => {
   (async () => {
-    const { id } = req.params;
-    const { name, age } = req.body;
+    const { id } = req.params; // Extract user ID from request parameters
+    const { email, firstName, secondName, username, password, role } = req.body; // Extract new field values from request body
+
     try {
-      await db.collection("users").doc(id).update({ name, age });
-      res.status(200).send("User updated successfully");
+      // Hash the password before storing
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      // Update the user document in the database
+      await db.collection("users").doc(id).update({
+        email,
+        firstName,
+        secondName,
+        username,
+        password: hashedPassword, // Store hashed password
+        role, // Store new role
+      });
+      res.status(200).send("User updated successfully"); // Send success response
     } catch (error: unknown) {
       if (error instanceof Error) {
-        res.status(400).send(error.message);
+        res.status(400).send(error.message); // Send error message if known error
       } else {
-        res.status(400).send("An unknown error occurred");
+        res.status(400).send("An unknown error occurred"); // Send error message for unknown error
       }
     }
   })();
