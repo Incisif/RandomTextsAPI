@@ -3,24 +3,22 @@ import * as admin from "firebase-admin";
 import { checkFirebaseToken } from "./checkFirebaseToken";
 
 const createTextRoutes = (db: admin.firestore.Firestore) => {
-const router = Router();
+  const router = Router();
 
-
-
-// Get all texts
-router.get("/getAllTexts", (req: Request, res: Response) => {
+  // Get all texts
+  router.get("/getAllTexts", (req: Request, res: Response) => {
     (async () => {
       try {
         const textsSnapshot = await db.collection("texts").get();
         const texts: any[] = [];
-  
+
         textsSnapshot.forEach((doc) => {
           texts.push({
             id: doc.id,
             ...doc.data(),
           });
         });
-  
+
         res.status(200).json(texts);
       } catch (error: unknown) {
         if (error instanceof Error) {
@@ -31,20 +29,20 @@ router.get("/getAllTexts", (req: Request, res: Response) => {
       }
     })();
   });
-  
+
   // Create a new text
   router.post(
     "/addText",
     checkFirebaseToken,
     async (req: Request, res: Response) => {
       const { title, author, content, language } = req.body;
-  
+
       if (!title || !author || !content || !language) {
         return res
           .status(400)
           .send("All fields (title, author, content, language) are required.");
       }
-  
+
       try {
         const text = await db.collection("texts").add({
           title,
@@ -62,7 +60,7 @@ router.get("/getAllTexts", (req: Request, res: Response) => {
       }
     }
   );
-  
+
   // Get a text by ID
   router.get("/getText/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -81,7 +79,7 @@ router.get("/getAllTexts", (req: Request, res: Response) => {
       }
     }
   });
-  
+
   // Delete a text by ID
   router.delete(
     "/deleteText/:id",
@@ -99,8 +97,7 @@ router.get("/getAllTexts", (req: Request, res: Response) => {
         }
       }
     }
-    
   );
   return router;
-}
-  export default createTextRoutes;
+};
+export default createTextRoutes;

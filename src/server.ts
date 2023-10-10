@@ -10,11 +10,11 @@ import createUserRoutes from "./userRoutes";
 dotenv.config();
 
 const serviceAccount = {
-  privateKey: process.env.PRIVATE_KEY?.replace(/\\n/g, "\n"),
-  clientEmail: process.env.CLIENT_EMAIL,
-  projectId: process.env.PROJECT_ID,
+  privateKey: process.env.ADMIN_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+  clientEmail: process.env.ADMIN_CLIENT_EMAIL,
+  projectId: process.env.ADMIN_PROJECT_ID,
 } as admin.ServiceAccount;
-console.log(process.env.PRIVATE_KEY, process.env.CLIENT_EMAIL, process.env.PROJECT_ID);
+
 // Initialize Firebase
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
