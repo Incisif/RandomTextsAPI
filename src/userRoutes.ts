@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import * as admin from "firebase-admin";
-import { checkFirebaseToken } from "./checkFirebaseToken";
+import { checkAdmin } from "./checkAdmin";
 
 const createUserRoutes = (db: admin.firestore.Firestore) => {
 const router = Router();
@@ -77,7 +77,7 @@ router.post(
 // Get a user by ID
 router.get(
   "/getUser/:id",
-  checkFirebaseToken,
+  checkAdmin,
   async (req: Request, res: Response) => {
     const { id } = req.params;
 
@@ -102,7 +102,7 @@ router.get(
 router.put(
   "/updateUser/:id",
   validateUserFields,
-  checkFirebaseToken,
+  checkAdmin,
   async (req: Request, res: Response) => {
     const { id } = req.params;
     const { email, firstName, lastName, username, password, role } = req.body;
@@ -145,7 +145,7 @@ router.put(
 // Delete a user by ID
 router.delete(
   "/deleteUser/:id",
-  checkFirebaseToken,
+  checkAdmin,
   async (req: Request, res: Response) => {
     const { id } = req.params;
 

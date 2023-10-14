@@ -1,6 +1,6 @@
 import { Request, Response, Router } from "express";
 import * as admin from "firebase-admin";
-import { checkFirebaseToken } from "./checkFirebaseToken";
+import { checkAdmin } from "./checkAdmin";
 
 const createTextRoutes = (db: admin.firestore.Firestore) => {
   const router = Router();
@@ -33,7 +33,7 @@ const createTextRoutes = (db: admin.firestore.Firestore) => {
   // Create a new text
   router.post(
     "/addText",
-    checkFirebaseToken,
+    checkAdmin,
     async (req: Request, res: Response) => {
       const { title, author, content, language } = req.body;
 
@@ -83,7 +83,7 @@ const createTextRoutes = (db: admin.firestore.Firestore) => {
   // Delete a text by ID
   router.delete(
     "/deleteText/:id",
-    checkFirebaseToken,
+    checkAdmin,
     async (req: Request, res: Response) => {
       const { id } = req.params;
       try {
