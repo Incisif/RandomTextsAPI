@@ -9,7 +9,7 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
   // Middleware for validating user fields
   // eslint-disable-next-line @typescript-eslint/ban-types
   const validateUserFields = (req: Request, res: Response, next: Function) => {
-    const { email, firstName, lastName, username, role } = req.body;
+    const { email, firstName, lastName, username } = req.body;
 
     const missingFields: string[] = [];
 
@@ -17,7 +17,6 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
     if (!firstName) missingFields.push("firstName");
     if (!lastName) missingFields.push("lastName");
     if (!username) missingFields.push("username");
-    if (!role) missingFields.push("role");
 
     if (missingFields.length > 0) {
       return res
@@ -33,10 +32,11 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
     "/createUser",
     validateUserFields,
     async (req: Request, res: Response) => {
-      const { email, firstName, lastName, username, password } = req.body;
+      const { email, firstName, lastName, password, profilePictureUrl } =
+        req.body;
 
       // Early validation of required fields
-      if (!email || !firstName || !lastName || !username || !password) {
+      if (!email || !firstName || !lastName || !password) {
         return res.status(400).send("All fields are required.");
       }
 
@@ -60,7 +60,7 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
           email,
           firstName,
           lastName,
-          username,
+          profilePictureUrl,
           role: "user",
         });
 
@@ -101,46 +101,25 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
     }
   );
 
-  interface UpdatedUserFields {
-    [key: string]: string | undefined;
-    email?: string;
-    firstName?: string;
-    lastName?: string;
-    username?: string;
-    role?: string;
-  }
-
-  // Update a user by ID
-  router.put(
+  // Update a user by ID using PATCH for partial updates
+  router.patch(
     "/updateUser/:id",
-    validateUserFields,
     checkAdmin,
     async (req: Request, res: Response) => {
       const { id } = req.params;
-      const { email, firstName, lastName, username, password, role } = req.body;
+      const updatedFields = req.body; // Prend tous les champs fournis dans le body
 
       try {
-        const updatedFields: UpdatedUserFields = {};
-
-        if (email) updatedFields.email = email;
-        if (firstName) updatedFields.firstName = firstName;
-        if (lastName) updatedFields.lastName = lastName;
-        if (username) updatedFields.username = username;
-        if (role) updatedFields.role = role;
-
-        // Update user in Firebase
-        if (password) {
-          await admin.auth().updateUser(id, {
-            password, // Firebase handles the hashing
-            email,
-          });
-        } else {
-          await admin.auth().updateUser(id, {
-            email,
-          });
+        // Mise à jour de l'utilisateur dans Firebase (pour les champs pris en charge)
+        if (updatedFields.password || updatedFields.email) {
+          const updateData: admin.auth.UpdateRequest = {};
+          if (updatedFields.password)
+            updateData.password = updatedFields.password;
+          if (updatedFields.email) updateData.email = updatedFields.email;
+          await admin.auth().updateUser(id, updateData);
         }
 
-        // Update additional fields in Firestore
+        // Mise à jour des champs supplémentaires dans Firestore
         await db.collection("users").doc(id).update(updatedFields);
 
         res.status(200).send("User updated successfully");
@@ -173,6 +152,22 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
       }
     }
   );
+
+  //Route for updating user's session stats
+  router.put("/updateSessionStats/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { sessionStats } = req.body;
+
+    try {
+      await db.collection("users").doc(id).update({
+        sessionStats, //Update sessionStats field with the new value
+      });
+      res.status(200).send("Session stats updated successfully");
+    } catch (error: unknown) {
+      // Handle errors
+    }
+  });
+
   return router;
 };
 export default createUserRoutes;
