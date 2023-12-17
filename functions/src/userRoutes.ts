@@ -6,17 +6,18 @@ import { checkAdmin } from "./checkAdmin";
 const createUserRoutes = (db: admin.firestore.Firestore) => {
   const router = Router();
 
-  // Middleware for validating user fields
   // eslint-disable-next-line @typescript-eslint/ban-types
+  // Middleware for validating user fields
   const validateUserFields = (req: Request, res: Response, next: Function) => {
-    const { email, firstName, lastName, username } = req.body;
+    const { email, firstName, lastName, password, signInMethod } = req.body;
 
     const missingFields: string[] = [];
 
     if (!email) missingFields.push("email");
     if (!firstName) missingFields.push("firstName");
     if (!lastName) missingFields.push("lastName");
-    if (!username) missingFields.push("username");
+    if (signInMethod === "standard" && !password)
+      missingFields.push("password");
 
     if (missingFields.length > 0) {
       return res
@@ -32,45 +33,69 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
     "/createUser",
     validateUserFields,
     async (req: Request, res: Response) => {
-      const { email, firstName, lastName, password, profilePictureUrl } =
-        req.body;
-
-      // Early validation of required fields
-      if (!email || !firstName || !lastName || !password) {
-        return res.status(400).send("All fields are required.");
-      }
-
-      // Email validation
-      const emailRegex = /^[\w-]+(\.[\w-]+)*@([\w-]+\.)+[a-zA-Z]{2,7}$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).send("Invalid email format.");
-      }
+      const {
+        email,
+        firstName,
+        lastName,
+        password,
+        profilePictureUrl,
+        signInMethod,
+        uid,
+      } = req.body;
 
       try {
-        // Create Firebase user
-        const userRecord = await admin.auth().createUser({
-          email,
-          password,
-          displayName: `${firstName} ${lastName}`,
-        });
+        //check if user already exists
+        const existingUserSnapshot = await db
+          .collection("users")
+          .where("email", "==", email)
+          .get();
+        if (!existingUserSnapshot.empty) {
+          // User already exists
+          return res.status(409).send("User already exists");
+        }
 
-        // Store additional user details in Firestore
-        const user = await db.collection("users").add({
-          uid: userRecord.uid,
-          email,
-          firstName,
-          lastName,
-          profilePictureUrl,
-          role: "user",
-        });
+        if (signInMethod === "standard") {
+          //User created with email and password
+          const userRecord = await admin.auth().createUser({
+            email,
+            password,
+            displayName: `${firstName} ${lastName}`,
+          });
 
-        return res.status(201).send(`User created with ID: ${user.id}`);
-      } catch (error: unknown) {
+          // Store additional details in Firestore
+          const user = await db.collection("users").add({
+            uid: userRecord.uid,
+            email,
+            firstName,
+            lastName,
+            profilePictureUrl: profilePictureUrl || null,
+            role: "user",
+            // Ajouter d'autres champs si nécessaire
+          });
+
+          return res.status(201).send(`User created with ID: ${user.id}`);
+        } else if (signInMethod === "google") {
+          // Utilisateur déjà créé via Google SignIn
+          // Enregistrer les détails dans Firestore
+          const user = await db.collection("users").add({
+            uid,
+            email,
+            firstName,
+            lastName,
+            profilePictureUrl: profilePictureUrl || null,
+            role: "user",
+            // Ajouter d'autres champs si nécessaire
+          });
+
+          return res.status(201).send(`User created with ID: ${user.id}`);
+        } else {
+          // Gérer le cas où signInMethod n'est pas 'standard' ou 'google'
+          return res.status(400).send("Invalid sign-in method");
+        }
+      } catch (error) {
         if (error instanceof Error) {
-          // Handle known errors
           return res.status(400).send(error.message);
         } else {
-          // Handle unknown errors
           return res.status(400).send("An unknown error occurred");
         }
       }
@@ -153,6 +178,28 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
     }
   );
 
+  router.get("/userExists/:email", async (req: Request, res: Response) => {
+    const { email } = req.params;
+  
+    try {
+      const userSnapshot = await db.collection("users").where("email", "==", email).get();
+      
+      if (!userSnapshot.empty) {
+        const userData = userSnapshot.docs[0].data();
+        res.status(200).json(userData);
+      } else {
+        res.status(404).send("User not found");
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        res.status(400).send(error.message);
+      } else {
+        res.status(400).send("An unknown error occurred");
+      }
+    }
+  });
+  
+
   //Route for updating user's session stats
   router.put("/updateSessionStats/:id", async (req: Request, res: Response) => {
     const { id } = req.params;
@@ -165,6 +212,31 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
       res.status(200).send("Session stats updated successfully");
     } catch (error: unknown) {
       // Handle errors
+    }
+  });
+  // Get session stats for a user by ID
+  router.get("/getSessionStats/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+
+    try {
+      const userDoc = await db.collection("users").doc(id).get();
+
+      if (!userDoc.exists) {
+        return res.status(404).send("User not found");
+      }
+
+      const userData = userDoc.data();
+      if (userData?.sessionStats) {
+        return res.status(200).json(userData.sessionStats);
+      } else {
+        return res.status(404).send("Session stats not found for this user");
+      }
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        return res.status(400).send(error.message);
+      } else {
+        return res.status(400).send("An unknown error occurred");
+      }
     }
   });
 
