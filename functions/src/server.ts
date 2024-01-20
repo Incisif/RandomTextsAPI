@@ -3,6 +3,7 @@ import * as admin from "firebase-admin";
 import createTextRoutes from "./textRoutes";
 import createUserRoutes from "./userRoutes";
 import * as functions from "firebase-functions";
+import cors from "cors";
 
 const serviceAccount = {
   privateKey: functions.config().admin.private_key.replace(/\\n/g, "\n"),
@@ -20,8 +21,13 @@ const db = admin.firestore();
 
 // Initialize Express app
 const app = express();
-import cors from "cors"; // Prefer import over require
-app.use(cors());
+const corsOptions = {
+  origin: ["https://www.fastype.desem.dev", "https://fastype.desem.dev"],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+
 // Middleware for parsing JSON
 app.use(express.json({ limit: "1mb" }));
 

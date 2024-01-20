@@ -70,7 +70,7 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
             lastName,
             profilePictureUrl: profilePictureUrl || null,
             role: "user",
-            // Ajouter d'autres champs si nécessaire
+            sessionStats: [],
           });
 
           return res.status(201).send(`User created with ID: ${user.id}`);
@@ -180,10 +180,13 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
 
   router.get("/userExists/:email", async (req: Request, res: Response) => {
     const { email } = req.params;
-  
+
     try {
-      const userSnapshot = await db.collection("users").where("email", "==", email).get();
-      
+      const userSnapshot = await db
+        .collection("users")
+        .where("email", "==", email)
+        .get();
+
       if (!userSnapshot.empty) {
         const userData = userSnapshot.docs[0].data();
         res.status(200).json(userData);
@@ -198,34 +201,56 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
       }
     }
   });
-  
 
-  //Route for updating user's session stats
-  router.put("/updateSessionStats/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const { sessionStats } = req.body;
+  router.put(
+    "/updateSessionStats/:uid",
+    async (req: Request, res: Response) => {
+      const { uid } = req.params;
+      const { sessionStats } = req.body;
 
-    try {
-      await db.collection("users").doc(id).update({
-        sessionStats, //Update sessionStats field with the new value
-      });
-      res.status(200).send("Session stats updated successfully");
-    } catch (error: unknown) {
-      // Handle errors
+      try {
+        const usersRef = db.collection("users");
+        const querySnapshot = await usersRef.where("uid", "==", uid).get();
+
+        if (querySnapshot.empty) {
+          res.status(404).json({ message: "User not found" });
+          return;
+        }
+
+        const userDocRef = querySnapshot.docs[0].ref;
+
+        await userDocRef.update({
+          sessionStats: admin.firestore.FieldValue.arrayUnion(sessionStats),
+        });
+
+        res.status(200).json({ message: "Session stats updated successfully" });
+      } catch (error) {
+        console.error("Error updating session stats:", error);
+        res
+          .status(500)
+          .json({
+            error:
+              error instanceof Error
+                ? error.message
+                : "An unknown error occurred",
+          });
+      }
     }
-  });
+  );
+
   // Get session stats for a user by ID
-  router.get("/getSessionStats/:id", async (req: Request, res: Response) => {
-    const { id } = req.params;
-
+  router.get("/getSessionStats/:uid", async (req: Request, res: Response) => {
+    const { uid } = req.params;
+  
     try {
-      const userDoc = await db.collection("users").doc(id).get();
-
-      if (!userDoc.exists) {
+      const usersRef = db.collection("users");
+      const querySnapshot = await usersRef.where("uid", "==", uid).get();
+  
+      if (querySnapshot.empty) {
         return res.status(404).send("User not found");
       }
-
-      const userData = userDoc.data();
+  
+      const userData = querySnapshot.docs[0].data();
       if (userData?.sessionStats) {
         return res.status(200).json(userData.sessionStats);
       } else {
@@ -239,6 +264,7 @@ const createUserRoutes = (db: admin.firestore.Firestore) => {
       }
     }
   });
+  
 
   return router;
 };
